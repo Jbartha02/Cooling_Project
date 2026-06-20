@@ -1,6 +1,3 @@
-# Generierte Outputs (werden per main.py neu erzeugt)
-clean_code/results_*/
-clean_code/maps/*.pkl
 
 # Alte / Zwischen-Versionen
 old/

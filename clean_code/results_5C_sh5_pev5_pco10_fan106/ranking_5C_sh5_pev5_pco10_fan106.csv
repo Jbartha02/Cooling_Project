@@ -1,0 +1,10 @@
+,refrigerant,c_d_mm,status,SEER_year,cost_CHF_year,E_total_kWh_year,T_room_std_year,n_cycles_year,n_fan_limited_year,n_ac_overload_year,n_T_high_year
+1,R290,40,PASS,3.095,1661.5,6645.88,1.733,3563.0,0.0,0.0,4384.0
+2,DME,50,PASS,2.92,1767.2,7068.89,1.769,3654.0,0.0,0.0,4384.0
+3,R1234yf,50,PASS,2.755,1883.7,7534.95,1.8113,3836.0,0.0,0.0,4476.0
+4,R290,30,FAIL (overload),,,,,,,,
+5,R290,50,FAIL (fan_limited),,,,,,,,
+6,R1234yf,30,FAIL (overload),,,,,,,,
+7,R1234yf,40,FAIL (overload),,,,,,,,
+8,DME,30,FAIL (overload),,,,,,,,
+9,DME,40,FAIL (overload),,,,,,,,
