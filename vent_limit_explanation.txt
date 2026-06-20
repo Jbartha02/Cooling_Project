@@ -1,0 +1,78 @@
+Ventilation Mass Flow Rate Limit — m_dot_vent_max
+==================================================
+
+CURRENT CONFIGURATION (NC 45, 40x40 cm, Serverraum-Standard)
+--------------------------------------------------------------
+Value:  m_dot_vent_max = 0.88 kg/s
+Room:   10 m x 6 m x 3 m  =  180 m3
+Vent:   1 x 40 cm x 40 cm  =  0.16 m2
+Air density at 15 C:  rho ~ 1.225 kg/m3
+
+Resulting face velocity:
+  v = 0.88 / (1.225 x 0.16) = 4.49 m/s  -> NC 45 (Beaufort 3)
+
+Air changes per hour (ACH):
+  ACH = (0.88/1.225) x 3600 / 180 ~ 14.4 ACH
+
+Noise standard applied:
+  NC 45 -- Serverraum / EDV-Raum gem. ASHRAE Handbook HVAC Applications
+            Kap. 48, VDI 2081, ASHRAE TC 9.9.
+  Serverraeume haben Eigenlarm 55-70 dBA (Server-Fans) -> NC 45 ist
+  normkonformes HVAC-Ziel.
+
+Fan limit on AC evaporator side:
+  Q_AC_fan_max = m_dot_vent_max x dh(T_room, T_AC)
+  Bei T_room=15 C, T_AC=5 C, feucht: dh ~ 12.6 kJ/kg -> Q_AC_fan_max ~ 11.1 kW
+  Bei T_room=15 C, T_AC=5 C, trocken: dh ~ 10.2 kJ/kg -> Q_AC_fan_max ~ 9.0 kW
+
+
+WARUM 40x40 cm STATT 30x30 cm?
+--------------------------------
+Die Detailsimulation (5-min-Schritte) zeigt einen realen Austrocknungseffekt:
+
+  Der Verdampfer (T_AC=5 C) kondensiert Feuchtigkeit aus der Raumluft.
+  Startfeuchte: X_room = 0.00643 kg/kg (phi=60%, T=15 C)
+  Kondensationsgrenze: X_AC_sat = 0.00548 kg/kg (phi=100%, T=5 C)
+
+  Nach nur ~7 min AC-Betrieb faellt X_room unter X_AC_sat.
+  Danach kein Kondensat mehr -> dh sinkt von 12.6 auf 10.2 kJ/kg (nur fuehlbar).
+
+  Mit dem 30x30 cm Luefter (m_dot=0.50 kg/s):
+    Q_fan_trocken = 0.50 x 10.2 = 5.1 kW ~ q_server (5 kW)
+    -> Luefter war dauerhaft der Engpass (fan_limited = True fast immer)
+    -> Q_AC lag zufaellig genau auf q_server (falsche Gleichgewichtssituation)
+
+  Mit dem 40x40 cm Luefter (m_dot=0.88 kg/s):
+    Q_fan_trocken = 0.88 x 10.2 = 9.0 kW >> q_server
+    Q_fan_feucht  = 0.88 x 12.6 = 11.1 kW >> q_server
+    -> Fan-Limit greift nur noch wenn Kompressor wirklich > 9 kW liefert
+    -> fan_limited = True nur fuer D=50 mm Kompressor bei hohen Temperaturen
+
+
+VORGAENGER-KONFIGURATIONEN (ersetzt)
+--------------------------------------
+30x30 cm, m_dot=0.50 kg/s (NC 45):
+  v = 0.50 / (1.225 x 0.09) = 4.54 m/s
+  Q_fan_trocken = 5.1 kW -- zu knapp bei Austrocknung
+  Grund fuer Wechsel: Austrockungsartefakt in Detailsimulation aufgedeckt
+
+40x40 cm, m_dot=0.40 kg/s (NC 40, Buro-Standard):
+  v = 0.40 / (1.225 x 0.09) = 3.63 m/s
+  Zu konservativ fuer Serverraum mit dominantem Serverlaerm.
+
+
+Noise & comfort limits reference
+---------------------------------
+  NC 30-35   Einzelbuero, Besprechungsraum
+  NC 35-40   Grossraumburo, Schulungsraum
+  NC 40-45   Serverraum / EDV-Raum (aktuelle Einstellung)
+  NC 45-55   Technikraum, Maschinenraum
+  Max grille velocity at NC 45:  4.5 m/s
+  Max room air speed:            0.20 m/s  (ISO 7730 Zugluftkomfort)
+
+
+Q_fan_max Uebersicht bei verschiedenen Lueftergroessen (v=4.5 m/s, NC 45):
+---------------------------------------------------------------------------
+  30x30 cm:  m_dot=0.50 kg/s  Q_trocken=5.0 kW  Q_feucht=6.2 kW
+  40x40 cm:  m_dot=0.88 kg/s  Q_trocken=9.0 kW  Q_feucht=11.1 kW  <- aktuell
+  50x50 cm:  m_dot=1.38 kg/s  Q_trocken=14.0 kW Q_feucht=17.3 kW

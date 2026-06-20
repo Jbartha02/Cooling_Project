@@ -1,0 +1,18 @@
+# Generierte Outputs (werden per main.py neu erzeugt)
+clean_code/results_*/
+clean_code/maps/*.pkl
+
+# Alte / Zwischen-Versionen
+old/
+combined_model/
+system_model/
+exercises/
+project_files/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# IDE
+.vscode/
