@@ -169,12 +169,16 @@ def simulate(season, refrigerant, c_d_mm, maps,
                                               T_amb[i], T_prev)
             Q_AC_max_arr[i] = Q_max
 
+            vent_was_on = vent_on_arr[i - 1] if i > 0 else False
+
             prev_therm = ac_therm
             if ac_therm:
                 if T_prev <= cfg.T_OFF and t_in_state >= t_min_on:
                     ac_therm, t_in_state = False, 0.0
             else:
-                if T_prev >= cfg.T_ON and t_in_state >= t_min_off:
+                from_vent = vent_was_on and t_in_state >= t_min_off
+                from_temp = T_prev >= cfg.T_ON and t_in_state >= t_min_off
+                if from_vent or from_temp:
                     ac_therm, t_in_state = True, 0.0
 
             if ac_therm and not prev_therm:

@@ -64,10 +64,13 @@ def plot_day(df, season, refrigerant, c_d_mm, tag="", save=True, out_dir=None):
     ax.plot(t, df["W_comp_kW"], color="#4472C4", lw=1.5, label="W_comp")
     ax.set_ylabel("Elektr. Leistung [kW]")
 
+    m_dot = np.where(df["ac_on"].values,   df["m_dot_ac"].values,
+            np.where(df["vent_on"].values, df["m_dot_vent"].values, 0.0))
+
     ax2r_mdot = ax.twinx()
-    ax2r_mdot.plot(t, df["m_dot_ac"], color="#70AD47", lw=1.0, ls="--",
-                   alpha=0.7, label="m_dot_ac")
-    ax2r_mdot.set_ylabel("m_dot_ac [kg/s]", color="#70AD47")
+    ax2r_mdot.plot(t, m_dot, color="#70AD47", lw=1.0, ls="--",
+                   alpha=0.7, label="m_dot")
+    ax2r_mdot.set_ylabel("m_dot [kg/s]", color="#70AD47")
     ax2r_mdot.tick_params(colors="#70AD47")
 
     ax2r_cop = ax.twinx()
