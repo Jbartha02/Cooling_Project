@@ -150,7 +150,20 @@ def simulate(season, refrigerant, c_d_mm, maps,
 
     for i in range(n):
         h_vent, X_vent = _vent_state(T_amb[i])
-        T_prev = T_room_arr[i - 1] if i > 0 else cfg.T_room_set
+
+        # ── Zustand vor dem Schritt aufzeichnen (physikalisch korrekte Zuordnung) ──
+        # T_room[i] ist die Temperatur die den Thermostat-Entscheid für Schritt i
+        # auslöst; ac_on[i] / Q_AC[i] sind die Reaktion auf diesen Zustand.
+        z             = [z[0], max(float(z[1]), 0.0)]
+        X_room        = max(z[1] / cfg.m_Air, 0.0)
+        X_room_arr[i] = X_room
+        T_prev        = ((z[0] - cfg._H_A0 - X_room * cfg._L0)
+                         / (cfg._CP_A + X_room * cfg._CP_W))
+        T_room_arr[i] = T_prev
+        if 0.0 < T_prev < 60.0:
+            phi_room_arr[i] = Fmoist.state_moist(["T", "X"], [T_prev, X_room])["phi"]
+        else:
+            phi_room_arr[i] = float("nan")
 
         # ── Ventilationsbetrieb prüfen ────────────────────────────────────────
         h_target  = (cfg._CP_A * cfg.T_room_set + cfg._H_A0
@@ -188,7 +201,6 @@ def simulate(season, refrigerant, c_d_mm, maps,
             ac_on_arr[i] = ac_therm
 
             if ac_therm:
-                X_room = max(z[1] / cfg.m_Air, 0.0)
                 X_AC   = X_AC_sat if X_room > X_AC_sat else X_room
                 h_AC   = cfg._CP_A*T_AC_ + cfg._H_A0 + X_AC*(cfg._L0 + cfg._CP_W*T_AC_)
                 h_room = z[0]
@@ -218,17 +230,6 @@ def simulate(season, refrigerant, c_d_mm, maps,
                 z = _step_no_flow(z, dt, q_server[i])
 
         n_cycles_arr[i] = n_cycles
-        z = [z[0], max(float(z[1]), 0.0)]
-
-        X_room        = max(z[1] / cfg.m_Air, 0.0)
-        X_room_arr[i] = X_room
-        T_room_arr[i] = ((z[0] - cfg._H_A0 - X_room * cfg._L0)
-                         / (cfg._CP_A + X_room * cfg._CP_W))
-        if 0.0 < T_room_arr[i] < 60.0:
-            phi_room_arr[i] = Fmoist.state_moist(["T", "X"],
-                                                  [T_room_arr[i], X_room])["phi"]
-        else:
-            phi_room_arr[i] = float("nan")
 
     return pd.DataFrame({
         "time":          time,

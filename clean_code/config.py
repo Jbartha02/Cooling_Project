@@ -25,7 +25,7 @@ fluid_so                = "air"
 fluid_si                = "air"
 
 # ── Fan (Verdampferseite) ──────────────────────────────────────────────────────
-m_dot_vent_max = 1.65   # kg/s — 50×50 cm, v=5.5 m/s (1.056, 40x40 cm, v=5.5 m/s)
+m_dot_vent_max = 1.65   # 1.65 kg/s — 50×50 cm, v=5.5 m/s (1.056, 40x40 cm, v=5.5 m/s)
 delta_p_fan    = 100.   # Pa   — Systemwiderstand
 eta_fan        = 0.60   # —    — Ventilatorwirkungsgrad
 rho_air        = 1.2    # kg/m³

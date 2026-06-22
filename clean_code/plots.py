@@ -103,6 +103,10 @@ def plot_day(df, season, refrigerant, c_d_mm, tag="", save=True, out_dir=None):
     ax.set_xlabel("Zeit [h]")
     ax.legend(loc="upper right", fontsize=8)
 
+    dt_h = t[1] - t[0] if len(t) > 1 else 1/12
+    axes[0].set_xlim(t[0], t[-1] + dt_h)   # volle 24 h sichtbar (letzter Schritt inkl.)
+    axes[-1].set_xticks(range(0, 25, 2))
+
     plt.tight_layout()
 
     if save:
