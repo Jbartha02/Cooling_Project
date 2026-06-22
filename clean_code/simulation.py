@@ -198,10 +198,16 @@ def simulate(season, refrigerant, c_d_mm, maps,
                 m_dot_ac    = min(m_dot_ideal, cfg.m_dot_vent_max)
                 Q_delivered = m_dot_ac * dh
 
+                # On/off-Zyklusverlust: COPres = COPinner * r/(0.9r+0.1), r=Q_demand/Q_AC
+                # Kompressor läuft bei voller Leistung und taktet → mehr Strom pro kWh Kälte
+                r          = min(q_server[i] / Q_delivered, 1.0) if Q_delivered > 1e-6 else 1.0
+                cop_factor = r / (0.9 * r + 0.1)
+                W_comp_cyc = W_comp_rated / cop_factor if cop_factor > 1e-9 else W_comp_rated
+
                 fan_lim_arr[i]  = m_dot_ac < m_dot_ideal - 1e-9
                 Q_AC_arr[i]     = Q_delivered
                 m_dot_ac_arr[i] = m_dot_ac
-                W_comp_arr[i]   = W_comp_rated
+                W_comp_arr[i]   = W_comp_cyc
                 # Overload nur relevant wenn Raum zu warm ist (T_prev > T_overload_min).
                 # Ist der Raum bereits kühler als der Schwellwert, läuft der Kompressor
                 # einfach auf Maximum — ein Leistungsdefizit ist dort akzeptabel.
