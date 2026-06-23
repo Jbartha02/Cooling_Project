@@ -168,8 +168,10 @@ def simulate(season, refrigerant, c_d_mm, maps,
             phi_room_arr[i] = float("nan")
 
         # ── Ventilationsbetrieb prüfen ────────────────────────────────────────
+        # h_target: Raumziel-Enthalpie bei T_set mit aktueller Raumfeuchte X_room
+        # (X_room statt X_amb: physikalisch korrektere Momentan-Betrachtung)
         h_target  = (cfg._CP_A * cfg.T_room_set + cfg._H_A0
-                     + X_vent * (cfg._L0 + cfg._CP_W * cfg.T_room_set))
+                     + X_room * (cfg._L0 + cfg._CP_W * cfg.T_room_set))
         dh_to_set = h_target - h_vent
         if dh_to_set > 1e-6 and q_server[i] / dh_to_set <= cfg.m_dot_vent_max:
             m_dot_vent = q_server[i] / dh_to_set
