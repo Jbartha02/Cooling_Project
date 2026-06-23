@@ -149,6 +149,7 @@ def simulate(season, refrigerant, c_d_mm, maps,
     ac_therm   = False
     t_in_state = 0.0
     n_cycles   = 0
+    q_est      = 3.0   # kW — Startwert Lastschätzung (typische Grundlast)
 
     for i in range(n):
         h_vent, X_vent = _vent_state(T_amb[i])
@@ -167,17 +168,28 @@ def simulate(season, refrigerant, c_d_mm, maps,
         else:
             phi_room_arr[i] = float("nan")
 
+        # ── Lastschätzung aus Temperaturanstieg (kein q_server nötig) ───────────
+        if i > 0 and not vent_on_arr[i-1] and not ac_on_arr[i-1]:
+            cp_eff_est = cfg._CP_A + X_room * cfg._CP_W
+            q_raw = cfg.m_Air * cp_eff_est * (T_prev - T_room_arr[i-1]) / dt
+            q_est = max(q_raw, 0.0)
+
         # ── Ventilationsbetrieb prüfen ────────────────────────────────────────
-        # h_target: Raumziel-Enthalpie bei T_set mit aktueller Raumfeuchte X_room
-        # (X_room statt X_amb: physikalisch korrektere Momentan-Betrachtung)
-        h_target  = (cfg._CP_A * cfg.T_room_set + cfg._H_A0
-                     + X_room * (cfg._L0 + cfg._CP_W * cfg.T_room_set))
-        dh_to_set = h_target - h_vent
-        if dh_to_set > 1e-6 and q_server[i] / dh_to_set <= cfg.m_dot_vent_max:
-            m_dot_vent = q_server[i] / dh_to_set
-            z = _step_with_flow(z, dt, q_server[i], m_dot_vent, h_vent, X_vent)
+        # Proportional-Regler: T_vent_target = T_set - q_est/(m_dot_max·cp)
+        #   eliminiert stationären Fehler. GAIN=1.1 wenn T_room > T_set (aggressiver),
+        #   sonst GAIN=1.0 (sanft, kein Überschießen). m_dot_raw >= m_dot_max → AC.
+        cp_eff        = cfg._CP_A + X_vent * cfg._CP_W
+        T_vent_target = cfg.T_room_set - q_est / (cfg.m_dot_vent_max * cp_eff)
+        dT_drive      = T_prev - T_amb[i]
+        dT_error      = T_prev - T_vent_target
+        active_gain   = cfg.VENT_GAIN if T_prev > cfg.T_room_set else 1.0
+        m_dot_raw     = (cfg.m_dot_vent_max * active_gain * dT_error / dT_drive
+                         if dT_drive > 1e-6 else cfg.m_dot_vent_max)
+        m_dot_prop    = min(cfg.m_dot_vent_max, m_dot_raw)
+        if T_amb[i] < cfg.T_room_set and dT_error > 0.0 and m_dot_raw < cfg.m_dot_vent_max:
+            z = _step_with_flow(z, dt, q_server[i], m_dot_prop, h_vent, X_vent)
             vent_on_arr[i]    = True
-            m_dot_vent_arr[i] = m_dot_vent
+            m_dot_vent_arr[i] = m_dot_prop
             t_in_state += dt
 
         else:

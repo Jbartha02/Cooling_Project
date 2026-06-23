@@ -32,7 +32,8 @@ rho_air        = 1.2    # kg/m³
 
 # ── Raum ───────────────────────────────────────────────────────────────────────
 V_air      = 3 * 6 * 10        # m³  (3 m × 6 m × 10 m)
-T_room_set = 15.0               # °C  — Sollwert
+T_room_set  = 15.0   # °C  — Sollwert
+VENT_GAIN   = 1.1    # —   — Gain: m_dot_max früher erreicht (>T_set), 1.0 darunter
 
 # Asymmetrische Hysterese: früh einschalten, spät ausschalten.
 # T_ON eng am Sollwert → Kompressor springt sofort an wenn Raum zu warm wird
