@@ -59,9 +59,13 @@ def plot_day(df, season, refrigerant, c_d_mm, tag="", save=True, out_dir=None):
               loc="upper right", fontsize=8)
     ax.set_ylabel("Leistung [kW]")
 
-    # ── ax2: W_comp + m_dot_ac + COP ─────────────────────────────────────────
+    # ── ax2: W_el (comp+fan) + m_dot_ac + COP_sys (aus Map) ─────────────────
+    # W_el_kW  = W_comp_kW + W_fan_kW  (gesamte elektr. Aufnahme)
+    # COP_eff  = aus Kennfeld interpoliert: Q_cool_max/(W_comp+W_fan) bei Vollast
     ax = axes[2]
-    ax.plot(t, df["W_comp_kW"], color="#4472C4", lw=1.5, label="W_comp")
+    ax.plot(t, df["W_el_kW"],   color="#4472C4", lw=1.5, label="W_el (comp+fan)")
+    ax.plot(t, df["W_comp_kW"], color="#A9C4E8", lw=1.0, ls="--", alpha=0.8, label="W_comp")
+    ax.plot(t, df["W_fan_kW"],  color="#A0D0A0", lw=1.0, ls=":",  alpha=0.8, label="W_fan")
     ax.set_ylabel("Elektr. Leistung [kW]")
 
     m_dot = np.where(df["ac_on"].values,   df["m_dot_ac"].values,
@@ -75,12 +79,11 @@ def plot_day(df, season, refrigerant, c_d_mm, tag="", save=True, out_dir=None):
 
     ax2r_cop = ax.twinx()
     ax2r_cop.spines["right"].set_position(("axes", 1.12))
-    w   = df["W_comp_kW"].values
-    q   = df["Q_AC_kW"].values
-    cop = np.where(w > 0.01, q / w, np.nan)
-    valid = np.isfinite(cop)
-    ax2r_cop.plot(t[valid], cop[valid], color="crimson", lw=1.2, ls="-.", label="COP")
-    ax2r_cop.set_ylabel("COP [-]", color="crimson")
+    # COP_eff aus Map: Q_cool_max / (W_comp + W_fan) bei Vollast-Betriebspunkt
+    cop   = df["COP_eff"].values
+    valid = np.isfinite(cop) & (df["ac_on"].values)
+    ax2r_cop.plot(t[valid], cop[valid], color="crimson", lw=1.2, ls="-.", label="COP_sys")
+    ax2r_cop.set_ylabel("COP_sys [-]", color="crimson")
     ax2r_cop.tick_params(colors="crimson")
 
     lines1, labs1 = ax.get_legend_handles_labels()

@@ -137,7 +137,9 @@ def simulate(season, refrigerant, c_d_mm, maps,
     Q_AC_arr       = np.zeros(n)
     Q_AC_max_arr   = np.zeros(n)
     m_dot_ac_arr   = np.zeros(n)
-    W_comp_arr     = np.zeros(n)
+    W_comp_arr     = np.zeros(n)   # reines Kompressorwerk (nach On/Off-Degradation) [kW]
+    W_fan_arr      = np.zeros(n)   # Ventilatorleistung im AC-Betrieb [kW]
+    COP_eff_arr    = np.full(n, np.nan)  # System-COP aus Map: Q_cool/(W_comp+W_fan) bei Vollast
     fan_lim_arr    = np.zeros(n, dtype=bool)
     overload_arr   = np.zeros(n, dtype=bool)
     n_cycles_arr   = np.zeros(n, dtype=int)
@@ -178,8 +180,15 @@ def simulate(season, refrigerant, c_d_mm, maps,
 
         else:
             # ── AC-Thermostatbetrieb ──────────────────────────────────────────
-            _, Q_max, W_comp_rated, _ = query(maps, refrigerant, c_d_mm,
-                                              T_amb[i], T_prev)
+            # query() liefert: (COP_eff, Q_cool_max, W_comp, W_fan)
+            #   COP_eff   = Q_cool_max / (W_comp + W_fan)  — Anlage inkl. Fan (aus Map)
+            #   Q_cool_max = min(Q_Kreislauf, ṁ_max·Δh_fan) — fan-limitierte Kühlleistung [kW]
+            #   W_comp    = ṁ_ref·(h2−h1) — reines Kompressorwerk bei Vollast [kW]
+            #   W_fan     = ṁ_fan·Δp/(ρ·η) — Ventilatorleistung bei Vollast [kW]
+            # (W_comp ist NICHT durch COP-Rückrechnung bestimmt, sondern direkt aus dem
+            #  Kältemittelkreislauf: W_comp = ṁ·(h₂−h₁). Der Fan ist separat.)
+            _cop_eff_rated, Q_max, W_comp_rated, W_fan_rated = query(
+                maps, refrigerant, c_d_mm, T_amb[i], T_prev)
             Q_AC_max_arr[i] = Q_max
 
             vent_was_on = vent_on_arr[i - 1] if i > 0 else False
@@ -210,16 +219,26 @@ def simulate(season, refrigerant, c_d_mm, maps,
                 m_dot_ac    = min(m_dot_ideal, cfg.m_dot_vent_max)
                 Q_delivered = m_dot_ac * dh
 
-                # On/off-Zyklusverlust: COPres = COPinner * r/(0.9r+0.1), r=Q_demand/Q_AC
-                # Kompressor läuft bei voller Leistung und taktet → mehr Strom pro kWh Kälte
+                # ── On/Off-Zyklusverlust (Lecture 3) ────────────────────────────
+                # Der Kompressor läuft immer bei Vollast Q_cool_max und taktet an/aus.
+                # Teillastgrad r = Wärmelast / Vollastkühlleistung  (0 < r ≤ 1)
+                # COPres = COPinner · r/(0.9r+0.1)  →  bei r=1: kein Verlust;
+                #                                       bei r→0: COP→0 (reine Anlaufverluste)
+                # Umgeformt: W_comp_cyc = W_comp_rated / cop_factor  > W_comp_rated
                 r          = min(q_server[i] / Q_delivered, 1.0) if Q_delivered > 1e-6 else 1.0
                 cop_factor = r / (0.9 * r + 0.1)
+                # Kompressor: Anlaufverluste erhöhen den spez. Stromverbrauch
                 W_comp_cyc = W_comp_rated / cop_factor if cop_factor > 1e-9 else W_comp_rated
+                # Ventilator: läuft nur während ON-Phasen, kein Anlaufverlust
+                # → mittlere Leistung proportional zum Teillastgrad r
+                W_fan_cyc  = W_fan_rated * r
 
                 fan_lim_arr[i]  = m_dot_ac < m_dot_ideal - 1e-9
                 Q_AC_arr[i]     = Q_delivered
                 m_dot_ac_arr[i] = m_dot_ac
-                W_comp_arr[i]   = W_comp_cyc
+                W_comp_arr[i]   = W_comp_cyc           # Kompressor (ohne Fan)
+                W_fan_arr[i]    = W_fan_cyc            # Ventilator (AC-Betrieb)
+                COP_eff_arr[i]  = _cop_eff_rated       # System-COP aus Map (Vollast-Referenz)
                 # Overload nur relevant wenn Raum zu warm ist (T_prev > T_overload_min).
                 # Ist der Raum bereits kühler als der Schwellwert, läuft der Kompressor
                 # einfach auf Maximum — ein Leistungsdefizit ist dort akzeptabel.
@@ -231,7 +250,7 @@ def simulate(season, refrigerant, c_d_mm, maps,
 
         n_cycles_arr[i] = n_cycles
 
-    return pd.DataFrame({
+    df = pd.DataFrame({
         "time":          time,
         "T_amb":         T_amb,
         "q_server_kW":   q_server,
@@ -244,8 +263,16 @@ def simulate(season, refrigerant, c_d_mm, maps,
         "Q_AC_kW":       Q_AC_arr,
         "Q_AC_max_kW":   Q_AC_max_arr,
         "m_dot_ac":      m_dot_ac_arr,
+        # Elektrische Leistungen im AC-Betrieb:
+        #   W_comp_kW  = Kompressor nach On/Off-Degradation  [kW]  (kein Fan)
+        #   W_fan_kW   = Ventilator (duty-cycle-gewichtet)   [kW]  (kein Anlaufverlust)
+        #   W_el_kW    = Gesamte elektr. Leistung Anlage     [kW]  = W_comp + W_fan
         "W_comp_kW":     W_comp_arr,
+        "W_fan_kW":      W_fan_arr,
+        "W_el_kW":       W_comp_arr + W_fan_arr,
+        "COP_eff":       COP_eff_arr,   # System-COP aus Map (Vollast, inkl. Fan)
         "fan_limited":   fan_lim_arr,
         "ac_overloaded": overload_arr,
         "n_cycles_cum":  n_cycles_arr,
     })
+    return df

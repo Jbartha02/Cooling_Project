@@ -21,9 +21,12 @@ def season_energy(df):
         n_cycles      — Anzahl Kompressorzyklen am Tag
     """
     dt_h = float(df["time"].iloc[1] - df["time"].iloc[0])
+    # W_comp_kW  = reines Kompressorwerk (nach On/Off-Degradation, ohne Fan)
+    # W_fan_kW   = Ventilatorleistung im AC-Betrieb (duty-cycle-gewichtet)
+    # W_el_kW    = W_comp_kW + W_fan_kW  →  gesamte elektr. Aufnahme der Anlage
     return {
         "E_comp_kWh":    float((df["W_comp_kW"] * dt_h).sum()),
-        "E_total_kWh":   float((df["W_comp_kW"] * dt_h).sum()),
+        "E_total_kWh":   float((df["W_el_kW"]   * dt_h).sum()),
         "Q_cool_kWh":    float((df["Q_AC_kW"]   * dt_h).sum()),
         "n_T_low":       int((df["T_room"] < cfg.T_ROOM_MIN).sum()),
         "n_T_high":      int((df["T_room"] > cfg.T_ROOM_MAX).sum()),
