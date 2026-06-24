@@ -33,19 +33,19 @@ dt = float(t[1] - t[0]) * 3600.
 n  = len(t)
 
 def _T_from_z(z):
-    X = max(z[1] / cfg.m_Air, 0.0)
+    X = max(z[1], 0.0)
     return (z[0] - cfg._H_A0 - X * cfg._L0) / (cfg._CP_A + X * cfg._CP_W)
 
 # ── Szenario 1: keine Kühlung ─────────────────────────────────────────────────
 T_none = np.zeros(n)
-z = [cfg.h_0, cfg.mw0]
+z = [cfg.h_0, cfg.X_0]
 for i in range(n):
     z = _step_no_flow(z, dt, q_server[i])
     T_none[i] = _T_from_z(z)
 
 # ── Szenario 2: nur Ventilation ───────────────────────────────────────────────
 T_vent = np.zeros(n)
-z = [cfg.h_0, cfg.mw0]
+z = [cfg.h_0, cfg.X_0]
 for i in range(n):
     h_vent, X_vent = _vent_state(T_amb[i])
     h_target  = (cfg._CP_A * cfg.T_room_set + cfg._H_A0

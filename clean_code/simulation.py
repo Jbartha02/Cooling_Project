@@ -2,7 +2,7 @@
 5-Minuten On/Off-Thermostat-Simulation des Serverraums.
 
 Physik:
-  - ODE-Zustand z = [h*, m_w]  (spez. Raumluft-Enthalpie, Wassermasse)
+  - ODE-Zustand z = [h*, X]    (spez. Raumluft-Enthalpie, Feuchtegehalt)
   - Ventilation: wenn Aussenluft kühler als Sollwert und Massenstrom ausreicht
   - AC: Thermostat ON/OFF mit Hysterese und Mindestzeiten
   - Kompressor läuft immer bei voller Map-Leistung Q_max (kein Drosseln)
@@ -39,55 +39,55 @@ def _vent_state(T_amb, phi=cfg.phi_vent):
 #
 # Beide Betriebsmodi (AC an / Ventilation) führen auf dieselbe lineare ODE:
 #
-#   dh/dt  = (q + ṁ·(h_in − h)) / m_Air
-#          =  A − B·h                         mit  B = ṁ/m_Air
-#                                                  A = (q + ṁ·h_in)/m_Air
+#   dh*/dt = (q + ṁ·(h*_in − h*)) / m_da
+#           =  A − B·h*                        mit  B = ṁ/m_da
+#                                                   A = (q + ṁ·h*_in)/m_da
 #
-#   dm_w/dt = ṁ·(X_in − m_w/m_Air)
-#           =  C − B·m_w                       mit  C = ṁ·X_in
+#   dX/dt  = (ṁ/m_da)·(X_in − X)
+#           =  C − B·X                         mit  C = (ṁ/m_da)·X_in = B·X_in
 #
 # Gleichgewichtswerte (Ableitungen = 0):
-#   h_eq  = A/B = q/ṁ + h_in          ← Raumluft-Enthalpie bei stationärem Betrieb
-#   mw_eq = C/B = m_Air · X_in        ← Wassermasse bei stationärem Betrieb
+#   h*_eq = A/B = q/ṁ + h*_in         ← Raumluft-Enthalpie bei stationärem Betrieb
+#   X_eq  = X_in                       ← Feuchtegehalt bei stationärem Betrieb
 #
 # Exakte Lösung des linearen AWP (kein Diskretisierungsfehler, kein Solver-Overhead):
-#   h(t)  = h_eq  + (h₀  − h_eq ) · exp(−B·t)
-#   mw(t) = mw_eq + (mw₀ − mw_eq) · exp(−B·t)
+#   h*(t) = h*_eq + (h*₀ − h*_eq) · exp(−B·t)
+#   X(t)  = X_eq  + (X₀  − X_eq ) · exp(−B·t)
 #
 # Grenzfall ṁ → 0 (kein Massenstrom, z. B. AC aus):
-#   dh/dt = q / m_Air  →  h(t) = h₀ + (q/m_Air)·t
-#   dm_w/dt = 0         →  mw(t) = mw₀
+#   dh*/dt = q / m_da  →  h*(t) = h*₀ + (q/m_da)·t
+#   dX/dt  = 0          →  X(t)  = X₀
 
 
 def _step_with_flow(z, dt, q, m_dot, h_in, X_in):
     """
     Exakter Zeitschritt mit aktivem Massenstrom ṁ (AC-Betrieb oder Ventilation).
 
-    Löst dh/dt = A − B·h und dmw/dt = C − B·mw analytisch über das Intervall dt.
+    Löst dh*/dt = A − B·h* und dX/dt = C − B·X analytisch über das Intervall dt.
     """
-    h0, mw0 = z
+    h0, X0 = z
     if m_dot < 1e-12:
         # ṁ ≈ 0: Grenzfall entspricht reinem Aufheizen (= _step_no_flow)
-        return [h0 + q / cfg.m_Air * dt, mw0]
+        return [h0 + q / cfg.m_da * dt, X0]
 
-    B     = m_dot / cfg.m_Air          # Abklingrate [1/s]: Kehrwert der thermischen Zeitkonstante
+    B     = m_dot / cfg.m_da          # Abklingrate [1/s]: Kehrwert der thermischen Zeitkonstante
     h_eq  = q / m_dot + h_in          # stationäre Enthalpie: Wärmezufuhr q wird genau durch
                                        #   Zuluft (h_in) kompensiert, wenn h_room = h_eq
-    mw_eq = cfg.m_Air * X_in          # stationäre Wassermasse: Raum-X = Zuluft-X
+    X_eq  = X_in                       # stationäre Feuchte: Raum-X = Zuluft-X
 
     e = np.exp(-B * dt)                # Dämpfungsfaktor für diesen Zeitschritt
-    return [h_eq  + (h0  - h_eq ) * e,
-            mw_eq + (mw0 - mw_eq) * e]
+    return [h_eq + (h0 - h_eq) * e,
+            X_eq + (X0 - X_eq) * e]
 
 
 def _step_no_flow(z, dt, q):
     """
     Exakter Zeitschritt ohne Massenstrom (AC aus, kein Vent): lineares Aufheizen.
 
-    dh/dt = q/m_Air ist konstant → triviale Integration.
-    dm_w/dt = 0 → Feuchtemasse bleibt konstant.
+    dh*/dt = q/m_da ist konstant → triviale Integration.
+    dX/dt = 0 → Feuchtegehalt bleibt konstant.
     """
-    return [z[0] + q / cfg.m_Air * dt, z[1]]
+    return [z[0] + q / cfg.m_da * dt, z[1]]
 
 
 # ── Hauptsimulation ───────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ def simulate(season, refrigerant, c_d_mm, maps,
     n_cycles_arr   = np.zeros(n, dtype=int)
 
     # Zustand
-    z          = [cfg.h_0, cfg.mw0]
+    z          = [cfg.h_0, cfg.X_0]
     ac_therm   = False
     t_in_state = 0.0
     n_cycles   = 0
@@ -158,7 +158,7 @@ def simulate(season, refrigerant, c_d_mm, maps,
         # T_room[i] ist die Temperatur die den Thermostat-Entscheid für Schritt i
         # auslöst; ac_on[i] / Q_AC[i] sind die Reaktion auf diesen Zustand.
         z             = [z[0], max(float(z[1]), 0.0)]
-        X_room        = max(z[1] / cfg.m_Air, 0.0)
+        X_room        = z[1]
         X_room_arr[i] = X_room
         T_prev        = ((z[0] - cfg._H_A0 - X_room * cfg._L0)
                          / (cfg._CP_A + X_room * cfg._CP_W))
@@ -171,13 +171,10 @@ def simulate(season, refrigerant, c_d_mm, maps,
         # ── Lastschätzung aus Temperaturanstieg (kein q_server nötig) ───────────
         if i > 0 and not vent_on_arr[i-1] and not ac_on_arr[i-1]:
             cp_eff_est = cfg._CP_A + X_room * cfg._CP_W
-            q_raw = cfg.m_Air * cp_eff_est * (T_prev - T_room_arr[i-1]) / dt
+            q_raw = cfg.m_da * cp_eff_est * (T_prev - T_room_arr[i-1]) / dt
             q_est = max(q_raw, 0.0)
 
         # ── Ventilationsbetrieb prüfen ────────────────────────────────────────
-        # Proportional-Regler: T_vent_target = T_set - q_est/(m_dot_max·cp)
-        #   eliminiert stationären Fehler. GAIN=1.1 wenn T_room > T_set (aggressiver),
-        #   sonst GAIN=1.0 (sanft, kein Überschießen). m_dot_raw >= m_dot_max → AC.
         cp_eff        = cfg._CP_A + X_vent * cfg._CP_W
         T_vent_target = cfg.T_room_set - q_est / (cfg.m_dot_vent_max * cp_eff)
         dT_drive      = T_prev - T_amb[i]
@@ -190,6 +187,9 @@ def simulate(season, refrigerant, c_d_mm, maps,
             z = _step_with_flow(z, dt, q_server[i], m_dot_prop, h_vent, X_vent)
             vent_on_arr[i]    = True
             m_dot_vent_arr[i] = m_dot_prop
+            rho_vent          = 1.0 / Fmoist.state_moist(["T", "phi"], [T_amb[i], cfg.phi_vent])["v*"]
+            W_fan_arr[i]      = m_dot_prop * cfg.delta_p_fan / (rho_vent * cfg.eta_fan) / 1000.0
+            COP_eff_arr[i]    = q_server[i] / W_fan_arr[i] if W_fan_arr[i] > 1e-9 else np.nan
             t_in_state += dt
 
         else:
@@ -243,15 +243,12 @@ def simulate(season, refrigerant, c_d_mm, maps,
                 cop_factor = r / (0.9 * r + 0.1)
                 # Kompressor: Anlaufverluste erhöhen den spez. Stromverbrauch
                 W_comp_cyc = W_comp_rated / cop_factor if cop_factor > 1e-9 else W_comp_rated
-                # Ventilator: läuft nur während ON-Phasen, kein Anlaufverlust
-                # → mittlere Leistung proportional zum Teillastgrad r
-                W_fan_cyc  = W_fan_rated * r
 
                 fan_lim_arr[i]  = m_dot_ac < m_dot_ideal - 1e-9
                 Q_AC_arr[i]     = Q_delivered
                 m_dot_ac_arr[i] = m_dot_ac
-                W_comp_arr[i]   = W_comp_cyc           # Kompressor (ohne Fan)
-                W_fan_arr[i]    = W_fan_cyc            # Ventilator (AC-Betrieb)
+                W_comp_arr[i]   = W_comp_cyc
+                W_fan_arr[i]    = W_fan_rated
                 COP_eff_arr[i]  = _cop_eff_rated       # System-COP aus Map (Vollast-Referenz)
                 # Overload nur relevant wenn Raum zu warm ist (T_prev > T_overload_min).
                 # Ist der Raum bereits kühler als der Schwellwert, läuft der Kompressor

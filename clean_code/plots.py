@@ -80,9 +80,8 @@ def plot_day(df, season, refrigerant, c_d_mm, tag="", save=True, out_dir=None):
     ax2r_cop = ax.twinx()
     ax2r_cop.spines["right"].set_position(("axes", 1.12))
     # COP_eff aus Map: Q_cool_max / (W_comp + W_fan) bei Vollast-Betriebspunkt
-    cop   = df["COP_eff"].values
-    valid = np.isfinite(cop) & (df["ac_on"].values)
-    ax2r_cop.plot(t[valid], cop[valid], color="crimson", lw=1.2, ls="-.", label="COP_sys")
+    cop = np.where(df["ac_on"].values, df["COP_eff"].values, np.nan)
+    ax2r_cop.plot(t, cop, color="crimson", lw=1.2, ls="-.", label="COP_sys")
     ax2r_cop.set_ylabel("COP_sys [-]", color="crimson")
     ax2r_cop.tick_params(colors="crimson")
 

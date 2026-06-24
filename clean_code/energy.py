@@ -11,8 +11,9 @@ def season_energy(df):
 
     Rückgabe: dict mit
         E_comp_kWh    — Kompressorenergie [kWh/Tag]
-        E_total_kWh   — Gesamtenergie (= E_comp, Ventilatorleistung nicht separat)
-        Q_cool_kWh    — Gelieferte Kühlenergie [kWh/Tag]
+        E_fan_kWh     — Ventilatorenergie gesamt (AC + Vent) [kWh/Tag]
+        E_total_kWh   — Gesamtenergie (E_comp + E_fan) [kWh/Tag]
+        Q_cool_kWh    — Gelieferte Kühlenergie (AC + Vent) [kWh/Tag]
         n_T_low       — Schritte mit T_room < T_ROOM_MIN
         n_T_high      — Schritte mit T_room > T_ROOM_MAX
         n_fan_limited — Schritte mit Lüfter-Engpass
@@ -24,10 +25,12 @@ def season_energy(df):
     # W_comp_kW  = reines Kompressorwerk (nach On/Off-Degradation, ohne Fan)
     # W_fan_kW   = Ventilatorleistung im AC-Betrieb (duty-cycle-gewichtet)
     # W_el_kW    = W_comp_kW + W_fan_kW  →  gesamte elektr. Aufnahme der Anlage
+    Q_vent_kWh = float((df["q_server_kW"] * df["vent_on"].astype(float) * dt_h).sum())
     return {
         "E_comp_kWh":    float((df["W_comp_kW"] * dt_h).sum()),
+        "E_fan_kWh":     float((df["W_fan_kW"]  * dt_h).sum()),
         "E_total_kWh":   float((df["W_el_kW"]   * dt_h).sum()),
-        "Q_cool_kWh":    float((df["Q_AC_kW"]   * dt_h).sum()),
+        "Q_cool_kWh":    float((df["Q_AC_kW"]   * dt_h).sum()) + Q_vent_kWh,
         "n_T_low":       int((df["T_room"] < cfg.T_ROOM_MIN).sum()),
         "n_T_high":      int((df["T_room"] > cfg.T_ROOM_MAX).sum()),
         "n_fan_limited": int(df["fan_limited"].sum()) if "fan_limited" in df.columns else 0,
@@ -49,7 +52,7 @@ def annual_summary(season_results, season_days=None):
         season_days = cfg.SEASON_DAYS
 
     rows   = []
-    totals = {k: 0.0 for k in ["E_comp_kWh", "E_total_kWh", "Q_cool_kWh",
+    totals = {k: 0.0 for k in ["E_comp_kWh", "E_fan_kWh", "E_total_kWh", "Q_cool_kWh",
                                  "n_T_low", "n_T_high", "n_fan_limited",
                                  "n_ac_overload", "n_cycles"]}
     t_std_sum  = 0.0

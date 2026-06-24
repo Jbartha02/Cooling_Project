@@ -55,13 +55,14 @@ t_min_standstill_s = 10 * 60   # s — Mindest-Stillstandszeit
 # ── Raumluft-Masse & Initialzustand ───────────────────────────────────────────
 _T0   = T_room_set
 _phi0 = 0.6
-m_Air = V_air / Fmoist.state_moist(["T", "phi"], [_T0, _phi0])["v*"]   # kg
+m_da = V_air / Fmoist.state_moist(["T", "phi"], [_T0, _phi0])["v*"]   # kg Trockenluft
 
 _X0 = Fmoist.state_moist(["T", "phi"], [_T0, _phi0])["X"]
-mw0 = _X0 * m_Air
+X_0 = _X0                                                              # kg_w/kg_da
 h_0 = Fmoist.state_moist(["T", "X"],  [_T0, _X0])["h*"]
 
 X_AC_sat = Fmoist.state_moist(["T", "phi"], [T_AC, 1.0])["X"]
+
 
 # ── Psychrometrische Linearisierung: h*(T,X) ≈ _CP_A·T + _H_A0 + X·(_L0 + _CP_W·T)
 _h_a_5  = Fmoist.state_moist(["T", "X"], [5.0,  0.0])["h*"]

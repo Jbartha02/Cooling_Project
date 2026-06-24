@@ -81,7 +81,7 @@ def build_map(refrigerant, c_d_mm, T_AC=None, delta_T_sh=None,
             h_in    = Fmoist.state_moist(["T", "phi"], [T_room, 0.6])["h*"]
             h_out   = Fmoist.state_moist(["T", "phi"], [T_AC_,  1.0])["h*"]
             dh_fan  = h_in - h_out
-            Q_fan_max = cfg.m_dot_vent_max * dh_fan if dh_fan > 0 else 0.0
+            Q_fan_max = (cfg.m_dot_vent_max - 1e-4) * dh_fan if dh_fan > 0 else 0.0
             P_cool  = min(res["P_cool_kW"], Q_fan_max)
             W_comp  = res["W_comp_kW"]
             W_vent_ = _w_vent(P_cool, T_room, T_AC_)
