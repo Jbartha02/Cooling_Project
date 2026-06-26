@@ -12,9 +12,9 @@ import Fluid_CP_moist_air as Fmoist
 # ── Kältemittelkreislauf ───────────────────────────────────────────────────────
 T_AC           = 5.0    # °C  — Verdampfer-Ausblastemperatur
 delta_T_sh     = 5.0    # K   — Überhitzung
-delta_T_sc     = 5.0    # K   — Unterkühlung
+delta_T_sc     = 7.0    # K   — Unterkühlung
 min_pinch_ev   =  5.0  # K   — Mindest-Pinch Verdampfer
-min_pinch_co   = 10.0  # K   — Mindest-Pinch Kondensator
+min_pinch_co   = 5.0  # K   — Mindest-Pinch Kondensator
 min_pressure_ratio = 2.0
 
 # ── Kompressor ─────────────────────────────────────────────────────────────────
@@ -25,9 +25,9 @@ fluid_so                = "air"
 fluid_si                = "air"
 
 # ── Fan (Verdampferseite) ──────────────────────────────────────────────────────
-m_dot_vent_max = 1.056   # 1.65 kg/s — 50×50 cm, v=5.5 m/s (1.056, 40x40 cm, v=5.5 m/s)
-delta_p_fan    = 100.   # Pa   — Systemwiderstand
-eta_fan        = 0.60   # —    — Ventilatorwirkungsgrad
+m_dot_vent_max = 1.5   # kg/s — maximale Ventilator-Massenstromrate
+delta_p_fan    = 265.   # Pa   — Systemwiderstand
+eta_fan        = 0.68  # —    — Ventilatorwirkungsgrad
 rho_air        = 1.2    # kg/m³
 
 # ── Raum ───────────────────────────────────────────────────────────────────────

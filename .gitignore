@@ -5,7 +5,7 @@ combined_model/
 system_model/
 exercises/
 project_files/
-
+test_control.py
 # Python
 __pycache__/
 *.py[cod]
